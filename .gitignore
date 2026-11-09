@@ -1,0 +1,16 @@
+# Quartus (gerados na compilacao)
+quartus/db/
+quartus/incremental_db/
+quartus/output_files/
+quartus/*.qws
+quartus/*.qdf
+# Questa
+sim/work/
+sim/transcript
+sim/*.wlf
+# PlatformIO
+esp32cam/.pio/
+# MNIST baixado pelo script de treino
+train/data/
+__pycache__/
+sim/*.vstf

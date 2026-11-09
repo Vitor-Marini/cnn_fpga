@@ -160,6 +160,34 @@ Resultado esperado:
 - **SW 10–14:** outras imagens, todas com HEX0 = HEX1.
 - **SW 15:** um 5 que a rede erra. HEX0 deve mostrar **6**.
 
+## Ver o que a FPGA recebe (monitor pela JTAG)
+
+A DE10-Lite não tem porta serial para o PC, mas o mesmo cabo USB que grava a placa permite ler o que está dentro dela com a FPGA rodando. Com a placa gravada e ligada no USB, na pasta do projeto:
+
+```sh
+~/altera_lite/25.1std/quartus/bin/quartus_stp -t tools/jtag_monitor.tcl        # ao vivo (Ctrl-C para sair)
+~/altera_lite/25.1std/quartus/bin/quartus_stp -t tools/jtag_monitor.tcl once   # uma leitura só
+eog ultima_imagem.pgm                                                           # em outro terminal: a imagem
+```
+
+O que aparece no terminal a cada 0,5 s:
+```
+bytes 60040 | quadros ok 4245 | checksum errado 0 | inferencias 4245 | CNN 1 | HEX0 1
+```
+
+| Campo | Significado |
+|---|---|
+| bytes | bytes recebidos pela UART (conta até 65535 e volta a 0) |
+| quadros ok | quadros com checksum certo; se sobe, o fio está bom |
+| checksum errado | quadros corrompidos; deve ficar em 0 |
+| inferencias | vezes que a CNN rodou |
+| CNN | dígito da última inferência |
+| HEX0 | dígito no display (só muda após 3 resultados iguais) |
+
+Quando chega imagem nova (no máximo a cada 3 s), o monitor imprime o 28×28 que a CNN recebeu em ASCII e salva o mesmo em `ultima_imagem.pgm` (280×280). O `eog` recarrega a imagem sozinho.
+
+Se aparecer erro de JTAG, rode `pkill jtagd` e tente de novo. Se a placa foi desligada, grave o `.sof` antes.
+
 ## Firmware ESP32-CAM (PlatformIO)
 
 ```sh

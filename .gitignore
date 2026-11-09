@@ -14,3 +14,4 @@ esp32cam/.pio/
 train/data/
 __pycache__/
 sim/*.vstf
+ultima_imagem.pgm*

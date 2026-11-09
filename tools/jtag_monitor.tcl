@@ -1,6 +1,8 @@
 # Monitor da FPGA pelo cabo USB-Blaster (In-System Sources and Probes de rtl/jtag_debug.vhd).
 # Uso:  quartus_stp -t tools/jtag_monitor.tcl            (status a cada 0,5 s + imagem a cada quadro novo)
 #       quartus_stp -t tools/jtag_monitor.tcl once       (um status + a ultima imagem, e sai)
+# Cada imagem tambem e salva em ultima_imagem.pgm (280x280, tons de cinza): abra com  eog ultima_imagem.pgm
+# e o visualizador recarrega sozinho a cada quadro novo.
 # Sai com Ctrl-C.
 
 set once [expr {[llength $argv] > 0 && [lindex $argv 0] eq "once"}]
@@ -20,16 +22,35 @@ proc probe {} {
 proc image {} {
     set shade " .:-=+*#%@"
     set rows {}
+    set px {}
     for {set y 0} {$y < 28} {incr y} {
         set line ""
+        set row {}
         for {set x 0} {$x < 28} {incr x} {
             write_source_data -instance_index 0 -value [format %03X [expr {$y * 28 + $x}]] -value_in_hex
             set v [lindex [probe] 6]
             append line [string index $shade [expr {min(9, $v * 9 / 127)}]]
+            lappend row $v
         }
         lappend rows "|$line|"
+        lappend px $row
     }
+    save_pgm $px
     return [join $rows "\n"]
+}
+
+# PGM ampliado 10x (cada pixel vira um bloco 10x10); grava num temporario e renomeia para o visualizador nao pegar arquivo pela metade
+proc save_pgm {px} {
+    set f [open ultima_imagem.pgm.tmp wb]
+    puts -nonewline $f "P5\n280 280\n255\n"
+    foreach row $px {
+        set line {}
+        foreach v $row { lappend line {*}[lrepeat 10 [expr {$v * 2}]] }
+        set bytes [binary format c* $line]
+        for {set i 0} {$i < 10} {incr i} { puts -nonewline $f $bytes }
+    }
+    close $f
+    file rename -force ultima_imagem.pgm.tmp ultima_imagem.pgm
 }
 
 set last_done -1

@@ -12,7 +12,10 @@ entity frame_rx is
     rd_addr    : in  unsigned(9 downto 0);          -- pixel 0..783 do quadro pronto
     rd_data    : out std_logic_vector(7 downto 0);  -- latencia de 1 ciclo
     start      : out std_logic;                     -- pulso: quadro valido entregue a CNN
-    frame_ok   : out std_logic                      -- pulso: checksum OK (mesmo se CNN ocupada)
+    frame_ok   : out std_logic;                     -- pulso: checksum OK (mesmo se CNN ocupada)
+    frame_bad  : out std_logic;                     -- pulso: checksum errado (depuracao)
+    dbg_addr   : in  unsigned(9 downto 0);          -- depuracao: le o mesmo quadro que a CNN recebeu
+    dbg_data   : out std_logic_vector(7 downto 0)
   );
 end entity;
 
@@ -34,13 +37,14 @@ begin
         ram(to_integer(wbank & idx)) <= rx_data;
       end if;
       rd_data <= ram(to_integer(not wbank & rd_addr));
+      dbg_data <= ram(to_integer(not wbank & dbg_addr));
     end if;
   end process;
 
   ctrl_p : process (clk)
   begin
     if rising_edge(clk) then
-      start <= '0'; frame_ok <= '0';
+      start <= '0'; frame_ok <= '0'; frame_bad <= '0';
       if rst = '1' then
         active <= '0'; wbank <= '0';
       elsif rx_valid = '1' then
@@ -59,6 +63,8 @@ begin
               if cnn_busy = '0' then             -- CNN ocupada: quadro descartado
                 start <= '1'; wbank <= not wbank;
               end if;
+            else
+              frame_bad <= '1';
             end if;
           end if;
         end if;

@@ -4,6 +4,7 @@ set_global_assignment -name TOP_LEVEL_ENTITY top
 set_global_assignment -name VHDL_FILE ../rtl/weights_pkg.vhd
 set_global_assignment -name VHDL_FILE ../rtl/selftest_pkg.vhd
 set_global_assignment -name VHDL_FILE ../rtl/selftest_rom.vhd
+set_global_assignment -name VHDL_FILE ../rtl/jtag_debug.vhd
 set_global_assignment -name VHDL_FILE ../rtl/uart_rx.vhd
 set_global_assignment -name VHDL_FILE ../rtl/frame_rx.vhd
 set_global_assignment -name VHDL_FILE ../rtl/cnn_core.vhd

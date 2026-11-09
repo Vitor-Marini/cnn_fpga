@@ -15,3 +15,5 @@ train/data/
 __pycache__/
 sim/*.vstf
 ultima_imagem.pgm*
+painel_cnn.pgm*
+ultimo_quadro.txt

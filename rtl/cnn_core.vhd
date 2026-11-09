@@ -15,7 +15,12 @@ entity cnn_core is
     img_addr : out unsigned(9 downto 0) := (others => '0');
     img_data : in  std_logic_vector(7 downto 0);  -- 1 ciclo apos img_addr
     done     : out std_logic;                     -- pulso
-    digit    : out unsigned(3 downto 0)
+    digit    : out unsigned(3 downto 0);
+    -- depuracao (jtag_debug): leitura dos 8 mapas 13x13 e das 10 pontuacoes da ultima inferencia
+    dbg_fm_addr   : in  unsigned(10 downto 0);
+    dbg_fm_q      : out std_logic_vector(7 downto 0);
+    dbg_score_sel : in  unsigned(3 downto 0);
+    dbg_score     : out signed(31 downto 0)
   );
 end entity;
 
@@ -51,15 +56,19 @@ architecture rtl of cnn_core is
   signal o  : natural range 0 to 9 := 0;
   signal i  : natural range 0 to FM_N - 1 := 0;
   signal acc, best : signed(31 downto 0) := (others => '0');
+  type score_t is array (0 to 9) of signed(31 downto 0);
+  signal scores : score_t := (others => (others => '0'));
   signal digit_r   : unsigned(3 downto 0) := (others => '0');
 begin
   busy <= '0' when st = IDLE else '1';
+  dbg_score <= scores(to_integer(dbg_score_sel)) when dbg_score_sel < 10 else (others => '0');
 
   mem_p : process (clk)
   begin
     if rising_edge(clk) then
       if fm_we = '1' then fmap(fm_waddr) <= fm_wdata; end if;
       fm_q <= fmap(fm_raddr);
+      if dbg_fm_addr < FM_N then dbg_fm_q <= fmap(to_integer(dbg_fm_addr)); end if;
     end if;
   end process;
 
@@ -136,6 +145,7 @@ begin
             if w_addr < FC_W'high then w_addr <= w_addr + 1; end if;
             if i = FM_N - 1 then st <= F_CMP; else i <= i + 1; st <= F_ADDR; end if;
           when F_CMP =>
+            scores(o) <= acc;
             if o = 0 or acc > best then best <= acc; digit_r <= to_unsigned(o, 4); end if;
             if o = 9 then st <= FIN; else o <= o + 1; st <= F_INIT; end if;
           when FIN =>

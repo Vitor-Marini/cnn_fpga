@@ -167,12 +167,12 @@ A DE10-Lite não tem porta serial para o PC, mas o mesmo cabo USB que grava a pl
 ```sh
 ~/altera_lite/25.1std/quartus/bin/quartus_stp -t tools/jtag_monitor.tcl        # ao vivo (Ctrl-C para sair)
 ~/altera_lite/25.1std/quartus/bin/quartus_stp -t tools/jtag_monitor.tcl once   # uma leitura só
-eog ultima_imagem.pgm                                                           # em outro terminal: a imagem
+eog painel_cnn.pgm                                                              # em outro terminal: o painel
 ```
 
-O que aparece no terminal a cada 0,5 s:
+A cada 0,5 s o terminal mostra:
 ```
-bytes 60040 | quadros ok 4245 | checksum errado 0 | inferencias 4245 | CNN 1 | HEX0 1
+bytes 23215 | quadros ok 29 | checksum errado 0 | inferencias 29 | CNN 1 | HEX0 1
 ```
 
 | Campo | Significado |
@@ -184,9 +184,20 @@ bytes 60040 | quadros ok 4245 | checksum errado 0 | inferencias 4245 | CNN 1 | H
 | CNN | dígito da última inferência |
 | HEX0 | dígito no display (só muda após 3 resultados iguais) |
 
-Quando chega imagem nova (no máximo a cada 3 s), o monitor imprime o 28×28 que a CNN recebeu em ASCII e salva o mesmo em `ultima_imagem.pgm` (280×280). O `eog` recarrega a imagem sozinho.
+Quando chega quadro novo (no máximo a cada 3 s), o monitor tira um "raio-x" da CNN. Ele congela a FPGA por cerca de 2 s, para tudo vir do mesmo quadro, e lê:
 
-Se aparecer erro de JTAG, rode `pkill jtagd` e tente de novo. Se a placa foi desligada, grave o `.sof` antes.
+- **Entrada:** a imagem 28×28 que a CNN recebeu, impressa em ASCII.
+- **Mapas:** os 8 mapas 13×13 depois da convolução e do pooling.
+- **Pontuações:** os 10 valores da camada densa, impressos como barras (negativas à esquerda, positivas à direita). Vence a maior.
+
+Tudo isso vai para `painel_cnn.pgm` (entrada | 8 mapas | barras, na ordem 0 a 9 de cima para baixo, com a vencedora em branco). Os números crus ficam em `ultimo_quadro.txt`. O `eog` recarrega o painel sozinho.
+
+Os mapas e as pontuações lidos da placa são idênticos, bit a bit, aos do modelo em Python para a mesma imagem.
+
+**Problemas comuns:**
+- **Erro de JTAG:** feche outros monitores, rode `pkill jtagd` e tente de novo.
+- **Gravar a placa com o monitor aberto:** não funciona. Feche o monitor antes (Ctrl-C).
+- **Placa desligada:** grave o `.sof` antes de usar o monitor.
 
 ## Firmware ESP32-CAM (PlatformIO)
 

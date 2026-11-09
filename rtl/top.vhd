@@ -35,7 +35,11 @@ architecture rtl of top is
   signal rx_data, img_data, uart_img, self_img : std_logic_vector(7 downto 0);
   signal rx_valid, uart_start, self_start, start, frame_ok, frame_bad, busy, done : std_logic;
   signal dbg_addr : unsigned(9 downto 0);
-  signal dbg_data : std_logic_vector(7 downto 0);
+  signal dbg_fm_addr : unsigned(10 downto 0);
+  signal dbg_score_sel : unsigned(3 downto 0);
+  signal dbg_data, dbg_fm_q : std_logic_vector(7 downto 0);
+  signal dbg_score : signed(31 downto 0);
+  signal freeze, rx_busy : std_logic;
   signal src_self : std_logic := '0';
   signal self_sel : unsigned(3 downto 0) := (others => '0');
   signal img_addr : unsigned(9 downto 0);
@@ -65,13 +69,16 @@ begin
 
   u_frame : entity work.frame_rx
     port map (clk => clk, rst => rst, rx_data => rx_data, rx_valid => rx_valid,
-              cnn_busy => busy, rd_addr => img_addr, rd_data => uart_img,
+              cnn_busy => rx_busy, rd_addr => img_addr, rd_data => uart_img,
               start => uart_start, frame_ok => frame_ok, frame_bad => frame_bad,
               dbg_addr => dbg_addr, dbg_data => dbg_data);
 
   u_dbg : entity work.jtag_debug
     port map (clk => clk, rst => rst, rx_valid => rx_valid, frame_ok => frame_ok, frame_bad => frame_bad,
-              done => done, digit => digit, shown => shown, pixel => dbg_data, pix_addr => dbg_addr);
+              done => done, digit => digit, shown => shown, pixel => dbg_data, fm_value => dbg_fm_q,
+              score => dbg_score, pix_addr => dbg_addr, fm_addr => dbg_fm_addr, score_sel => dbg_score_sel,
+              freeze => freeze);
+  rx_busy <= busy or freeze;  -- congelado pelo monitor: quadros novos sao descartados
 
   -- autoteste: borda de descida de KEY[1] (repiques so repetem a mesma inferencia)
   self_start <= key1_s(2) and not key1_s(1) and not busy and not uart_start;
@@ -94,7 +101,8 @@ begin
 
   u_cnn : entity work.cnn_core
     port map (clk => clk, rst => rst, start => start, busy => busy,
-              img_addr => img_addr, img_data => img_data, done => done, digit => digit);
+              img_addr => img_addr, img_data => img_data, done => done, digit => digit,
+              dbg_fm_addr => dbg_fm_addr, dbg_fm_q => dbg_fm_q, dbg_score_sel => dbg_score_sel, dbg_score => dbg_score);
 
   process (clk)
   begin

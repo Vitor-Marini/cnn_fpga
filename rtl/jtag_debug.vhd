@@ -1,9 +1,12 @@
 -- Depuracao pelo cabo USB-Blaster (JTAG), sem pinos extras: In-System Sources and Probes da Intel.
--- O PC (tools/jtag_monitor.tcl) escreve um endereco de pixel na "source" e le a "probe":
---   probe( 7: 0) pixel [addr] do ultimo quadro entregue a CNN
+-- O PC (tools/jtag_monitor.tcl) escreve na "source" e le a "probe":
+--   source(12) congela: a FPGA ignora quadros novos (imagem, mapas e pontuacoes ficam do mesmo quadro)
+--   source(11) 0 = pixel da imagem, 1 = valor dos mapas da CNN;  source(10:0) endereco (e pontuacao = addr(3:0))
+--   probe( 7: 0) imagem[addr] (0..783) ou mapa[addr] (0..1351, ordem filtro*169 + linha*13 + coluna)
 --   probe(11: 8) digito da ultima inferencia     probe(15:12) digito no HEX0 (apos o estabilizador)
 --   probe(31:16) quadros com checksum OK         probe(47:32) quadros com checksum errado
 --   probe(63:48) bytes recebidos pela UART       probe(79:64) inferencias concluidas
+--   probe(111:80) pontuacao do digito addr(3:0) na ultima inferencia (com sinal)
 -- Contadores de 16 bits dao a volta; o PC olha as diferencas.
 -- Na simulacao o altsource_probe fica sem modelo (componente sem ligacao): so a parte de depuracao nao e simulada.
 library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
@@ -14,7 +17,12 @@ entity jtag_debug is
     rx_valid, frame_ok, frame_bad, done : in std_logic;
     digit, shown : in unsigned(3 downto 0);
     pixel      : in  std_logic_vector(7 downto 0);
-    pix_addr   : out unsigned(9 downto 0)
+    fm_value   : in  std_logic_vector(7 downto 0);
+    score      : in  signed(31 downto 0);
+    pix_addr   : out unsigned(9 downto 0);
+    fm_addr    : out unsigned(10 downto 0);
+    score_sel  : out unsigned(3 downto 0);
+    freeze     : out std_logic
   );
 end entity;
 
@@ -32,8 +40,9 @@ architecture rtl of jtag_debug is
   end component;
 
   signal n_bytes, n_ok, n_bad, n_done : unsigned(15 downto 0) := (others => '0');
-  signal probe  : std_logic_vector(79 downto 0);
-  signal source : std_logic_vector(9 downto 0);
+  signal probe  : std_logic_vector(111 downto 0);
+  signal source : std_logic_vector(12 downto 0);
+  signal value  : std_logic_vector(7 downto 0);
 begin
   process (clk)
   begin
@@ -49,11 +58,16 @@ begin
     end if;
   end process;
 
-  probe <= std_logic_vector(n_done) & std_logic_vector(n_bytes) & std_logic_vector(n_bad) & std_logic_vector(n_ok)
-           & std_logic_vector(shown) & std_logic_vector(digit) & pixel;
-  pix_addr <= unsigned(source);
+  probe <= std_logic_vector(score) & std_logic_vector(n_done) & std_logic_vector(n_bytes) & std_logic_vector(n_bad)
+           & std_logic_vector(n_ok) & std_logic_vector(shown) & std_logic_vector(digit)
+           & value;
+  value <= fm_value when source(11) = '1' else pixel;
+  pix_addr  <= unsigned(source(9 downto 0));
+  fm_addr   <= unsigned(source(10 downto 0));
+  score_sel <= unsigned(source(3 downto 0));
+  freeze    <= '1' when source(12) = '1' else '0';  -- na simulacao a source fica 'U': nao congela
 
   u_issp : altsource_probe
-    generic map (instance_id => "CNN", probe_width => 80, source_width => 10, enable_metastability => "YES")
+    generic map (instance_id => "CNN", probe_width => 112, source_width => 13, enable_metastability => "YES")
     port map (probe => probe, source => source, source_clk => clk);
 end architecture;

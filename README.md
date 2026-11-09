@@ -140,12 +140,25 @@ Se você criar o projeto do zero em vez de usar o `.qpf`:
 
 ## Gravar a DE10-Lite
 
-1. Ligue a placa pelo USB-Blaster (conector USB da placa). *Tools → Programmer* → *Hardware Setup* → **USB-Blaster**.
-2. **Volátil (JTAG, perde ao desligar):** *Mode JTAG* → *Add File* `output_files/cnn_mnist.sof` → marque *Program/Configure* → *Start*. Na linha de comando:
-   `quartus_pgm -m jtag -o "p;output_files/cnn_mnist.sof"`
-3. **Permanente (flash interna CFM):** no Programmer, *Add File* `output_files/cnn_mnist.pof` → marque *Program/Configure* na linha do arquivo `.pof` → *Start*. Na linha de comando:
-   `quartus_pgm -m jtag -o "pvb;output_files/cnn_mnist.pof"`
-   Desligue e religue a placa: o FPGA carrega sozinho.
+Ligue a placa no USB do PC. O conector USB da DE10-Lite já é o gravador (USB-Blaster). Os comandos abaixo rodam na pasta do projeto.
+
+**Volátil (o mais usado no dia a dia).** Grava em ~3 s e se perde quando a placa desliga ou reinicia:
+```sh
+~/altera_lite/25.1std/quartus/bin/quartus_pgm -m jtag -o "p;quartus/output_files/cnn_mnist.sof"
+```
+Deve terminar com `Configuration succeeded` e `Quartus Prime Programmer was successful`.
+
+**Permanente (flash interna).** A placa carrega sozinha toda vez que liga:
+```sh
+~/altera_lite/25.1std/quartus/bin/quartus_pgm -m jtag -o "pvb;quartus/output_files/cnn_mnist.pof"
+```
+
+**Se falhar:**
+- **`Application SLD HUB CLIENT ... is using the target device`:** o monitor JTAG está aberto. Feche com Ctrl-C e grave de novo.
+- **`JTAG chain broken` ou `Hardware not attached`:** rode `pkill jtagd`, confira o cabo e tente de novo. `~/altera_lite/25.1std/quartus/bin/jtagconfig` deve listar `10M50DA`.
+- **Pela interface do Quartus:** *Tools → Programmer → Hardware Setup → USB-Blaster*, *Add File* com o `.sof` (ou o `.pof`), marque *Program/Configure* e clique em *Start*.
+
+Os arquivos `.sof` e `.pof` são gerados pela compilação (seção anterior) e não vão para o git.
 
 ## Autoteste na placa (sem ESP32)
 

@@ -5,7 +5,8 @@
 --   LEDR     : one-hot do digito
 --   KEY[0]   : reset (ativo em 0)
 --   Autoteste: SW[3..0] escolhe uma das 16 imagens MNIST gravadas na FPGA, KEY[1] roda a CNN nela;
---   HEX1 mostra o rotulo correto da imagem escolhida (ver docs/selftest_sw.png).
+--   HEX1 mostra o rotulo correto da imagem escolhida (ver docs/selftest_sw.png), so enquanto o
+--   ultimo resultado for do autoteste; com a camera mandando quadros, fica apagado.
 --   Depuracao: contadores e a ultima imagem recebida podem ser lidos pelo USB-Blaster (tools/jtag_monitor.tcl).
 library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
 use work.selftest_pkg.all;
@@ -129,7 +130,7 @@ begin
   u_seg : entity work.seg7 port map (digit => shown, seg => seg);
   label_sw <= to_unsigned(SELF_LABEL(to_integer(unsigned(sw_s))), 4);
   u_seg1 : entity work.seg7 port map (digit => label_sw, seg => seg1);
-  HEX1 <= '1' & seg1;
+  HEX1 <= '1' & seg1 when src_self = '1' else (others => '1');  -- só acende no autoteste
   HEX0 <= (not dp) & seg when have = '1' else (not dp) & "0111111";  -- "-"
 
   gen_led : for n in 0 to 9 generate

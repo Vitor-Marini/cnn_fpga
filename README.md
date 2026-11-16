@@ -2,6 +2,63 @@
 
 A ESP32-CAM captura a cena e pré-processa a imagem para 28×28 no estilo MNIST. Ela envia o quadro por UART a 1 Mbaud para a DE10-Lite (MAX 10 10M50DAF484C7G), que roda uma CNN INT8 em VHDL. O dígito aparece em **HEX0** e nos **LEDR** (um LED aceso por dígito).
 
+## Guia rápido: cheguei agora, quero usar
+
+Tudo roda da pasta do projeto. Precisa do Quartus Prime Lite 25.1 em `~/altera_lite/25.1std` e do PlatformIO (`pio`). Python com numpy só é necessário para retreinar.
+
+```sh
+cd ~/personal/academic/codes/fpga/cnn_fpga
+export Q=~/altera_lite/25.1std/quartus/bin        # atalho para as ferramentas do Quartus
+```
+
+**1. FPGA (DE10-Lite no USB)**
+
+```sh
+$Q/jtagconfig                                     # deve listar 10M50DA; se der "chain broken": pkill jtagd
+cd quartus && $Q/quartus_sh --flow compile cnn_mnist && cd ..     # só se mudou algum .vhd (~3 min)
+$Q/quartus_pgm -m jtag -o "p;quartus/output_files/cnn_mnist.sof"  # grava (some ao desligar a placa)
+$Q/quartus_pgm -m jtag -o "pvb;quartus/output_files/cnn_mnist.pof" # ou grava na flash (fica para sempre)
+```
+
+Depois de gravar, o HEX0 mostra "-" até chegar o primeiro quadro.
+
+**2. ESP32-CAM (na placa-base USB)**
+
+```sh
+ls /dev/ttyUSB*                                   # normalmente /dev/ttyUSB0
+cd esp32cam && pio run -t upload --upload-port /dev/ttyUSB0 && cd ..   # compila e grava
+pio device monitor -d esp32cam -p /dev/ttyUSB0    # vê o 28x28 em ASCII que a câmera manda (Ctrl-C sai)
+```
+
+Se o upload não conectar: segure IO0, aperte e solte RST, solte IO0 e rode de novo.
+
+**3. Ligar uma na outra:** 3 fios com tudo desligado. ESP 5V → pino 11 do JP1, GND → pino 12, IO14 → pino 1 (detalhes em [Ligação física](#ligação-física)). Com tudo ligado, o ponto do HEX0 pisca a cada quadro recebido e o HEX0 mostra o dígito.
+
+**4. Ver o que está dentro da FPGA (terminal e imagem)**
+
+```sh
+$Q/quartus_stp -t tools/jtag_monitor.tcl          # ao vivo: contadores + raio-x da CNN (Ctrl-C sai)
+$Q/quartus_stp -t tools/jtag_monitor.tcl once     # uma leitura só
+eog painel_cnn.pgm &                              # em outro terminal: imagem | 8 mapas | pontuações
+cat ultimo_quadro.txt                             # os números crus do último quadro
+```
+
+O `eog` recarrega o `painel_cnn.pgm` sozinho a cada leitura. Feche o monitor (Ctrl-C) antes de gravar a placa de novo: os dois usam o mesmo cabo.
+
+**5. Testar sem a ESP32:** escolha uma imagem nas chaves SW3..SW0 e aperte KEY1. O HEX0 mostra o que a CNN reconheceu e o HEX1 o dígito correto ([mapa das chaves](docs/selftest_sw.png)).
+
+**Problemas comuns**
+
+| Sintoma | O que fazer |
+|---|---|
+| `JTAG chain broken` / `Hardware not attached` | `pkill jtagd`, confira o cabo, rode `$Q/jtagconfig` de novo |
+| `... is using the target device` ao gravar | o monitor JTAG está aberto: Ctrl-C nele |
+| HEX0 fica em "-" e o ponto não pisca | não chegam quadros: confira o fio IO14 → pino 1 e o GND; veja no `pio device monitor` se a câmera manda |
+| Ponto pisca mas o dígito está errado | rode o monitor JTAG e veja no `painel_cnn.pgm` se a imagem parece um dígito do MNIST (luz, enquadramento, caneta grossa) |
+| ESP reinicia sozinha | falta corrente: alimente a ESP com uma fonte 5 V separada, mantendo o GND ligado |
+
+Documentação técnica completa, com animações: `xdg-open docs/projeto_tecnico.html`
+
 ## Resultados verificados
 
 | Item | Resultado |
@@ -164,7 +221,7 @@ Os arquivos `.sof` e `.pof` são gerados pela compilação (seção anterior) e 
 
 A FPGA guarda 16 imagens MNIST (`rtl/selftest_pkg.vhd`, gerado por `train/gen_selftest.py`).
 
-1. Escolha a imagem com SW3..SW0. HEX1 mostra o dígito correto dela.
+1. Escolha a imagem com SW3..SW0. HEX1 mostra o dígito correto dela (só no autoteste: com a câmera mandando quadros, o HEX1 fica apagado).
 2. Aperte KEY1 para rodar a CNN.
 3. Compare HEX0 com o mapa em `docs/selftest_sw.png`.
 
